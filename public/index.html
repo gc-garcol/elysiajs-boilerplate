@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebAuthn PassKey Authentication</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 12px 20px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            color: #6b7280;
+            transition: all 0.3s ease;
+        }
+
+        .tab-button.active {
+            color: #000;
+            border-bottom-color: #000;
+        }
+
+        .tab-button:hover {
+            color: #000;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 30px;
+            color: #1f2937;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        input {
+            padding: 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: #000;
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+        }
+
+        button.primary {
+            background: #000;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        button.primary:hover {
+            background: #374151;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        button.primary:active {
+            transform: translateY(0);
+        }
+
+        button.primary:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #34d399;
+        }
+
+        .alert.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #f87171;
+        }
+
+        .loader {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #000;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .button-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .token-display {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f3f4f6;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            word-break: break-all;
+            display: none;
+        }
+
+        .token-display.show {
+            display: block;
+        }
+
+        .token-label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #1f2937;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+
+        .token-value {
+            color: #374151;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="form-group" style="margin-bottom: 20px;">
+                <input type="text" id="base-url" placeholder="Base URL" autocomplete="off" />
+            </div>
+            <div class="tabs">
+                <button class="tab-button active" onclick="switchTab('register')">Register Credential</button>
+                <button class="tab-button" onclick="switchTab('login')">Login</button>
+            </div>
+
+            <!-- Register Tab -->
+            <div id="register-tab" class="tab-content active">
+                <h1>WebAuthn PassKey Register</h1>
+                <div id="register-alert" class="alert"></div>
+                <div class="form-group">
+                    <input type="text" id="register-token" placeholder="Enter access token" autocomplete="off" />
+                    <button class="primary" onclick="handleRegister()">
+                        <span class="button-content">
+                            <span id="register-text">Register Credential</span>
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Login Tab -->
+            <div id="login-tab" class="tab-content">
+                <h1>WebAuthn PassKey Login</h1>
+                <div id="login-alert" class="alert"></div>
+                <div class="form-group">
+                    <input type="text" id="login-username" placeholder="Enter username" autocomplete="off" />
+                    <button class="primary" onclick="handleLogin()">
+                        <span class="button-content">
+                            <span id="login-text">Login</span>
+                        </span>
+                    </button>
+                </div>
+                <div id="token-display" class="token-display">
+                    <div class="token-label">Access Token:</div>
+                    <div class="token-value" id="token-value"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load dependencies from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js"></script>
+
+    <script>
+        // Set base URL to current domain on page load
+        document.addEventListener('DOMContentLoaded', function () {
+            const baseUrlInput = document.getElementById('base-url');
+            if (!baseUrlInput.value.trim()) {
+                baseUrlInput.value = window.location.origin;
+            }
+        });
+
+        // Configuration
+        function getBaseUrl() {
+            return document.getElementById('base-url').value.trim() || window.location.origin;
+        }
+
+        // Service Functions
+        async function beginRegistration(token) {
+            const baseUrl = getBaseUrl();
+            const response = await axios.post(
+                `${baseUrl}/webauthn/register-challenge`,
+                {},
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
+            console.log("response - ", response.data);
+            return response.data.data;
+        }
+
+        async function finishRegistration(token, credential) {
+            const baseUrl = getBaseUrl();
+            const response = await axios.post(
+                `${baseUrl}/webauthn/register`,
+                { request: JSON.stringify(credential) },
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`
+                    }
+                }
+            );
+            return response.data.data;
+        }
+
+        async function beginLogin(username) {
+            const baseUrl = getBaseUrl();
+            const response = await axios.post(
+                `${baseUrl}/webauthn/login-challenge`,
+                { username: username }
+            );
+            return response.data.data;
+        }
+
+        async function finishLogin(credential) {
+            const baseUrl = getBaseUrl();
+            const response = await axios.post(
+                `${baseUrl}/webauthn/login`,
+                { request: JSON.stringify(credential) }
+            );
+            return response.data.data;
+        }
+
+        // UI Helper Functions
+        function switchTab(tab) {
+            // Remove active class from all tabs and contents
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            // Add active class to selected tab
+            if (tab === 'register') {
+                document.querySelector('.tab-button:first-child').classList.add('active');
+                document.getElementById('register-tab').classList.add('active');
+            } else {
+                document.querySelector('.tab-button:last-child').classList.add('active');
+                document.getElementById('login-tab').classList.add('active');
+            }
+
+            // Clear alerts
+            hideAlert('register-alert');
+            hideAlert('login-alert');
+
+            // Hide token display when switching tabs
+            const tokenDisplay = document.getElementById('token-display');
+            if (tokenDisplay) {
+                tokenDisplay.classList.remove('show');
+            }
+        }
+
+        function showAlert(elementId, message, type) {
+            const alert = document.getElementById(elementId);
+            alert.textContent = message;
+            alert.className = `alert show ${type}`;
+        }
+
+        function hideAlert(elementId) {
+            const alert = document.getElementById(elementId);
+            alert.className = 'alert';
+        }
+
+        function setButtonLoading(buttonText, loading) {
+            const textElement = document.getElementById(buttonText);
+            const button = textElement.closest('button');
+
+            if (loading) {
+                button.disabled = true;
+                textElement.innerHTML = 'Processing... <span class="loader"></span>';
+            } else {
+                button.disabled = false;
+                textElement.innerHTML = buttonText === 'register-text' ? 'Register' : 'Login';
+            }
+        }
+
+        // Register Handler
+        async function handleRegister() {
+            const token = document.getElementById('register-token').value.trim();
+
+            if (!token) {
+                showAlert('register-alert', 'Please enter an access token', 'error');
+                return;
+            }
+
+            hideAlert('register-alert');
+            setButtonLoading('register-text', true);
+
+            try {
+                // Begin registration
+                const option = await beginRegistration(token);
+
+                // Start WebAuthn registration
+                const credential = await SimpleWebAuthnBrowser.startRegistration(option);
+
+                // Finish registration
+                await finishRegistration(token, credential);
+
+                showAlert('register-alert', 'Registration successful! You can now login.', 'success');
+                document.getElementById('register-token').value = '';
+
+                // Switch to login tab after 2 seconds
+                setTimeout(() => switchTab('login'), 2000);
+
+            } catch (error) {
+                console.error('Registration error:', error);
+                const errorMessage = error.response?.data?.message || error.message || 'Registration failed';
+                showAlert('register-alert', errorMessage, 'error');
+            } finally {
+                setButtonLoading('register-text', false);
+            }
+        }
+
+        // Login Handler
+        async function handleLogin() {
+            const username = document.getElementById('login-username').value.trim();
+
+            if (!username) {
+                showAlert('login-alert', 'Please enter a username', 'error');
+                return;
+            }
+
+            hideAlert('login-alert');
+            setButtonLoading('login-text', true);
+
+            // Hide previous token display
+            const tokenDisplay = document.getElementById('token-display');
+            if (tokenDisplay) {
+                tokenDisplay.classList.remove('show');
+            }
+
+            try {
+                // Begin login
+                const option = await beginLogin(username);
+
+                // Start WebAuthn authentication
+                const credential = await SimpleWebAuthnBrowser.startAuthentication(option);
+
+                // Finish login
+                const response = await finishLogin(credential);
+                console.log("response - ", response);
+                const token = response.token;
+
+                // Display the token
+                const tokenDisplay = document.getElementById('token-display');
+                const tokenValue = document.getElementById('token-value');
+                tokenValue.textContent = token;
+                tokenDisplay.classList.add('show');
+
+                showAlert('login-alert', 'Login successful!', 'success');
+                document.getElementById('login-username').value = '';
+
+            } catch (error) {
+                console.error('Login error:', error);
+                const errorMessage = error.response?.data?.message || error.message || 'Login failed';
+                showAlert('login-alert', errorMessage, 'error');
+            } finally {
+                setButtonLoading('login-text', false);
+            }
+        }
+
+        // Add Enter key support
+        document.getElementById('register-token').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                handleRegister();
+            }
+        });
+
+        document.getElementById('login-username').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                handleLogin();
+            }
+        });
+    </script>
+</body>
+
+</html>
